@@ -39,11 +39,11 @@ button:disabled {
 }
 
 .workspace {
-  width: min(1220px, 100%);
+  width: min(1400px, 100%);
   height: calc(100vh - 40px);
   min-height: 620px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 480px);
   gap: 16px;
   margin: 0 auto;
 }
@@ -79,6 +79,10 @@ button:disabled {
   background: #fbfcfd;
 }
 
+.chat-header-title {
+  flex-shrink: 0;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: #6d7b88;
@@ -105,38 +109,70 @@ h2 {
   font-size: 21px;
 }
 
-.share-actions,
-.header-actions {
+.share-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
+.header-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+
 .share-actions button,
-.chat-form button {
+.chat-form button[type="submit"] {
   height: 42px;
   min-width: 84px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #11735d;
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.share-actions button:hover:not(:disabled),
+.chat-form button[type="submit"]:hover:not(:disabled) {
+  background: #0f6451;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.share-actions button:active:not(:disabled),
+.chat-form button[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 #stopShareButton {
-  background: #7c3f3f;
+  background: #c94a4a;
+}
+
+#stopShareButton:hover:not(:disabled) {
+  background: #b43d3d;
 }
 
 #fitModeButton {
-  border: 1px solid #c8d3dd;
+  border: 1px solid #d6dee7;
   background: #ffffff;
   color: #283642;
 }
 
+#fitModeButton:hover:not(:disabled) {
+  background: #f5f7fa;
+  border-color: #c8d3dd;
+}
+
 .name-field {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   color: #607080;
   font-size: 12px;
   font-weight: 700;
@@ -150,18 +186,26 @@ h2 {
 
 .name-field input {
   width: 132px;
-  height: 36px;
-  border: 1px solid #c8d3dd;
+  height: 40px;
+  border: 1px solid #d6dee7;
   border-radius: 8px;
   padding: 0 10px;
   color: #19202a;
   outline: none;
+  transition: all 0.2s ease;
+  background: #fafbfc;
+}
+
+.name-field input:hover {
+  background: #ffffff;
+  border-color: #c8d3dd;
 }
 
 .name-field input:focus,
 .chat-form input:focus {
-  border-color: #176b87;
-  box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.14);
+  border-color: #11735d;
+  box-shadow: 0 0 0 3px rgba(17, 115, 93, 0.12);
+  background: #ffffff;
 }
 
 .icon-button {
@@ -169,14 +213,36 @@ h2 {
   height: 40px;
   display: grid;
   place-items: center;
-  border: 1px solid #c8d3dd;
+  border: 1px solid #d6dee7;
   border-radius: 8px;
   background: #ffffff;
   color: #283642;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.icon-button:hover {
-  background: #edf3f6;
+.icon-button:hover:not(:disabled) {
+  background: #f5f7fa;
+  border-color: #c8d3dd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.icon-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.icon-button[data-enabled="true"] {
+  background: #e8f5f1;
+  border-color: #11735d;
+  color: #11735d;
+}
+
+.icon-button[data-enabled="true"]:hover:not(:disabled) {
+  background: #d4ede5;
+  border-color: #0f6451;
 }
 
 .video-stage {
@@ -339,24 +405,50 @@ h2 {
   width: 100%;
   min-width: 0;
   height: 42px;
-  border: 1px solid #c8d3dd;
-  border-radius: 8px;
-  padding: 0 48px 0 14px;
+  border: 1px solid #d6dee7;
+  border-radius: 10px;
+  padding: 0 44px 0 14px;
   color: #19202a;
   outline: none;
+  transition: all 0.2s ease;
+  background: #fafbfc;
+}
+
+.chat-form input:hover {
+  background: #ffffff;
+  border-color: #c8d3dd;
+}
+
+.chat-form input::placeholder {
+  font-size: 13px;
+  color: #8795a3;
 }
 
 .emoji-button {
   position: absolute;
-  top: 5px;
+  top: 50%;
   right: 6px;
+  transform: translateY(-50%);
   width: 32px;
   height: 32px;
   border: 0;
-  border-radius: 8px;
-  background: #edf3f6;
-  color: #283642;
+  border-radius: 6px;
+  background: transparent;
+  color: #6d7b88;
   font-size: 18px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-button:hover {
+  background: #f0f3f6;
+  color: #283642;
+}
+
+.emoji-button:active {
+  background: #e3e9ef;
 }
 
 .emoji-tray {
@@ -365,13 +457,13 @@ h2 {
   bottom: 48px;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(4, 36px);
-  gap: 6px;
+  grid-template-columns: repeat(4, 38px);
+  gap: 4px;
   padding: 8px;
-  border: 1px solid #d6dee7;
-  border-radius: 8px;
+  border: 1px solid #e3e9ef;
+  border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 12px 30px rgba(24, 38, 54, 0.16);
+  box-shadow: 0 8px 24px rgba(24, 38, 54, 0.12), 0 2px 6px rgba(24, 38, 54, 0.08);
 }
 
 .emoji-tray[hidden] {
@@ -379,12 +471,22 @@ h2 {
 }
 
 .emoji-tray button {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #e3e9ef;
-  border-radius: 8px;
-  background: #fbfcfd;
-  font-size: 18px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 20px;
+  transition: all 0.15s ease;
+}
+
+.emoji-tray button:hover {
+  background: #f5f7fa;
+  transform: scale(1.1);
+}
+
+.emoji-tray button:active {
+  transform: scale(0.95);
 }
 
 @media (max-width: 900px) {
