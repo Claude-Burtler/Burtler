@@ -1,0 +1,43 @@
+name: Claude-Burtler
+
+on:
+  push:
+    branches:
+      - prd
+
+jobs:
+  deploy:
+    name: Deploy on Windows
+    runs-on: [self-hosted, Windows, X64]
+
+    steps: # 작업 단계 정의
+      - name: Checkout prd branch
+        uses: actions/checkout@v4
+        with:
+          ref: prd
+
+      - name: Check Python version
+        shell: powershell
+        run: | # 파이썬 버전 확인
+          python --version
+
+      - name: Install dependencies
+        shell: powershell
+        run: | # pip 업그레이드 및 requirements.txt 파일이 있을 경우 의존성 설치
+          python -m pip install --upgrade pip
+
+          if (Test-Path "requirements.txt") {
+            pip install -r requirements.txt
+          } else {
+            Write-Host "requirements.txt 파일이 없습니다."
+          }
+
+      - name: Run syntax check
+        shell: powershell
+        run: |
+          python -m compileall .
+
+      - name: Run deploy script
+        shell: powershell
+        run: | # 해당 ps1 파일은 배포 스크립트
+          powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1  
