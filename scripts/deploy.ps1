@@ -12,20 +12,23 @@ $TaskName = "Burtler-Server"
 $AppDir   = Split-Path $PSScriptRoot   # scripts/ 의 상위 = 프로젝트 루트
 $CertFile = Join-Path $AppDir "certs\localhost.pem"
 $KeyFile  = Join-Path $AppDir "certs\localhost-key.pem"
-$Python   = "python"
+
+# SYSTEM 계정은 PATH가 달라 "python"을 못 찾으므로 전체 경로를 사용
+$Python = (Get-Command python -ErrorAction Stop).Source
+Write-Host "[$AppName] Python 경로: $Python"
 
 # --- 1. 인증서 확인 및 서버 모드 결정 ---
 if ((Test-Path $CertFile) -and (Test-Path $KeyFile)) {
     $useHttps = $true
     $port     = $HttpsPort
     $protocol = "https"
-    $uvicornCmd = "python -m uvicorn main:app --host 0.0.0.0 --port $port --ssl-certfile `"$CertFile`" --ssl-keyfile `"$KeyFile`""
+    $uvicornCmd = "`"$Python`" -m uvicorn main:app --host 0.0.0.0 --port $port --ssl-certfile `"$CertFile`" --ssl-keyfile `"$KeyFile`""
     Write-Host "[$AppName] HTTPS 모드로 배포합니다 (포트 $port)."
 } else {
     $useHttps = $false
     $port     = $HttpPort
     $protocol = "http"
-    $uvicornCmd = "python -m uvicorn main:app --host 0.0.0.0 --port $port"
+    $uvicornCmd = "`"$Python`" -m uvicorn main:app --host 0.0.0.0 --port $port"
     Write-Host "[$AppName] 인증서 없음 — HTTP 모드로 배포합니다 (포트 $port)."
     Write-Host "[$AppName] 경고: 화면 공유 기능은 HTTPS에서만 작동합니다."
 }
