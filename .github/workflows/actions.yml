@@ -8,7 +8,7 @@ on:
 jobs:
   deploy:
     name: Deploy on Windows
-    runs-on: self-hosted # 해당 이름은 self-hosted 러너에 맞춰야 함
+    runs-on: [self-hosted, Windows, X64]
 
     steps: # 작업 단계 정의
       - name: Checkout prd branch
