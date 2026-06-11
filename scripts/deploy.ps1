@@ -7,54 +7,43 @@ param(
     [int]$HttpPort  = 8000
 )
 
-$AppName   = "Burtler"
-$AppDir    = Split-Path $PSScriptRoot   # scripts/ 의 상위 = 프로젝트 루트
-$CertFile  = Join-Path $AppDir "certs\localhost.pem"
-$KeyFile   = Join-Path $AppDir "certs\localhost-key.pem"
-
-Set-Location $AppDir
+$AppName  = "Burtler"
+$TaskName = "Burtler-Server"
+$AppDir   = Split-Path $PSScriptRoot   # scripts/ 의 상위 = 프로젝트 루트
+$CertFile = Join-Path $AppDir "certs\localhost.pem"
+$KeyFile  = Join-Path $AppDir "certs\localhost-key.pem"
+$Python   = "python"
 
 # --- 1. 인증서 확인 및 서버 모드 결정 ---
 if ((Test-Path $CertFile) -and (Test-Path $KeyFile)) {
-    $useHttps  = $true
-    $port      = $HttpsPort
-    $protocol  = "https"
-    $uvicornArgs = @(
-        "-m", "uvicorn", "main:app",
-        "--host", "0.0.0.0",
-        "--port", "$port",
-        "--ssl-certfile", $CertFile,
-        "--ssl-keyfile",  $KeyFile
-    )
+    $useHttps = $true
+    $port     = $HttpsPort
+    $protocol = "https"
+    $uvicornCmd = "python -m uvicorn main:app --host 0.0.0.0 --port $port --ssl-certfile `"$CertFile`" --ssl-keyfile `"$KeyFile`""
     Write-Host "[$AppName] HTTPS 모드로 배포합니다 (포트 $port)."
 } else {
-    $useHttps  = $false
-    $port      = $HttpPort
-    $protocol  = "http"
-    $uvicornArgs = @(
-        "-m", "uvicorn", "main:app",
-        "--host", "0.0.0.0",
-        "--port", "$port"
-    )
+    $useHttps = $false
+    $port     = $HttpPort
+    $protocol = "http"
+    $uvicornCmd = "python -m uvicorn main:app --host 0.0.0.0 --port $port"
     Write-Host "[$AppName] 인증서 없음 — HTTP 모드로 배포합니다 (포트 $port)."
     Write-Host "[$AppName] 경고: 화면 공유 기능은 HTTPS에서만 작동합니다."
 }
 
-# --- 2. 해당 포트를 점유 중인 기존 프로세스 종료 ---
+# --- 2. 기존 포트 점유 프로세스 종료 ---
 Write-Host "[$AppName] 포트 $port 점유 프로세스를 확인합니다..."
-$netstatLines = netstat -ano 2>$null | Select-String "[:.]$port\s"
-$killedPids   = @()
+$killedPids = @()
 
-foreach ($line in $netstatLines) {
-    if ($line -match '\s+(\d+)\s*$') {
-        $pid = [int]$Matches[1]
-        if ($pid -gt 0 -and $pid -notin $killedPids) {
+netstat -ano 2>$null | Select-String "[:.]$port\s" | ForEach-Object {
+    if ($_ -match '\s+(\d+)\s*$') {
+        $p = [int]$Matches[1]
+        if ($p -gt 0 -and $p -notin $killedPids) {
             try {
-                Stop-Process -Id $pid -Force -ErrorAction Stop
-                $killedPids += $pid
-                Write-Host "[$AppName] PID $pid 종료 완료."
+                Stop-Process -Id $p -Force -ErrorAction Stop
+                $killedPids += $p
+                Write-Host "[$AppName] PID $p 종료 완료."
             } catch {
-                Write-Host "[$AppName] PID $pid 종료 실패 (이미 종료됨): $_"
+                Write-Host "[$AppName] PID $p 이미 종료됨."
             }
         }
     }
@@ -64,25 +53,43 @@ if ($killedPids.Count -eq 0) {
     Write-Host "[$AppName] 포트 $port 를 사용 중인 프로세스가 없습니다."
 }
 
+# --- 3. 기존 작업 스케줄러 태스크 제거 ---
+$existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($existingTask) {
+    Stop-ScheduledTask  -TaskName $TaskName -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    Write-Host "[$AppName] 기존 스케줄러 태스크 제거 완료."
+}
+
 Start-Sleep -Seconds 1
 
-# --- 3. 새 서버 프로세스 시작 ---
-Write-Host "[$AppName] 서버를 시작합니다..."
-$process = Start-Process -FilePath "python" `
-                         -ArgumentList $uvicornArgs `
-                         -WorkingDirectory $AppDir `
-                         -WindowStyle Hidden `
-                         -PassThru
+# --- 4. 작업 스케줄러로 서버 등록 및 시작 ---
+# GitHub Actions 러너가 종료해도 프로세스가 유지되도록 Task Scheduler 사용
+Write-Host "[$AppName] 작업 스케줄러에 서버를 등록합니다..."
 
-Write-Host "[$AppName] 프로세스 시작 (PID: $($process.Id))."
+$action  = New-ScheduledTaskAction -Execute "powershell.exe" `
+               -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Set-Location '$AppDir'; $uvicornCmd`"" `
+               -WorkingDirectory $AppDir
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit 0 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
+Register-ScheduledTask -TaskName $TaskName `
+                       -Action $action `
+                       -Trigger $trigger `
+                       -Settings $settings `
+                       -Principal $principal `
+                       -Force | Out-Null
+
+Start-ScheduledTask -TaskName $TaskName
+Write-Host "[$AppName] 서버 시작 요청 완료."
 
 # 서버가 바인딩될 때까지 대기
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 5
 
-# --- 4. 헬스 체크 ---
+# --- 5. 헬스 체크 ---
 Write-Host "[$AppName] 헬스 체크 중 (${protocol}://localhost:${port}/health)..."
 
-# 자체 서명 인증서 검증 우회 (HTTPS 모드)
 if ($useHttps) {
     [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 }
