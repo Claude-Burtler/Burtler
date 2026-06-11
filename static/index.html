@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A/B Laptop Chat</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="A/B laptop lunch workspace">
+        <section class="share-panel" aria-label="screen share">
+          <header class="share-header">
+            <div>
+              <p class="eyebrow" id="screenStatus">화면 공유 대기</p>
+              <h1>점심 장소 같이 보기</h1>
+            </div>
+            <div class="share-actions">
+              <button id="fitModeButton" type="button">비율 맞춤</button>
+              <button id="startShareButton" type="button">화면 공유</button>
+              <button id="watchShareButton" type="button" disabled>공유 화면 보기</button>
+              <button id="stopShareButton" type="button" disabled>중지</button>
+            </div>
+          </header>
+
+          <div id="videoStage" class="video-stage" data-fit-mode="contain">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <video id="remoteVideo" autoplay playsinline></video>
+            <img id="relayFrameImage" alt="공유 화면" />
+            <p id="shareEmptyState" class="share-empty">
+              네이버 지도나 카카오맵 화면을 공유하면 참여자가 같은 화면을 보면서 채팅할 수 있습니다.
+            </p>
+          </div>
+        </section>
+
+        <section class="chat-panel" aria-label="A/B laptop chat">
+          <header class="chat-header">
+            <div>
+              <p class="eyebrow" id="connectionStatus">연결 중</p>
+              <h2>A/B 노트북 채팅</h2>
+            </div>
+
+            <div class="header-actions">
+              <label class="name-field">
+                <span>대화명 <small id="clientHost"></small></span>
+                <input id="nameInput" type="text" maxlength="40" autocomplete="off" />
+              </label>
+              <button id="notifyButton" class="icon-button" type="button" title="알림 켜기" aria-label="알림 켜기">
+                !
+              </button>
+              <button id="clearButton" class="icon-button" type="button" title="대화 초기화" aria-label="대화 초기화">
+                ↻
+              </button>
+            </div>
+          </header>
+
+          <div id="chatLog" class="chat-log" aria-live="polite"></div>
+
+          <form id="chatForm" class="chat-form">
+            <div class="message-input-wrap">
+              <input
+                id="messageInput"
+                name="message"
+                type="text"
+                autocomplete="off"
+                maxlength="1000"
+                placeholder="맛집 의견이나 지도 링크를 입력하세요"
+                aria-label="메시지"
+                required
+              />
+              <button id="emojiButton" class="emoji-button" type="button" title="이모지" aria-label="이모지">
+                ☺
+              </button>
+              <div id="emojiTray" class="emoji-tray" hidden>
+                <button type="button">👍</button>
+                <button type="button">🙆</button>
+                <button type="button">🤔</button>
+                <button type="button">😋</button>
+                <button type="button">🔥</button>
+                <button type="button">🍜</button>
+                <button type="button">🍱</button>
+                <button type="button">☕</button>
+              </div>
+            </div>
+            <button id="sendButton" type="submit">전송</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
