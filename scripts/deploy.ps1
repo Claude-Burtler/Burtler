@@ -80,7 +80,7 @@ Write-Host "[$AppName] 프로세스 시작 (PID: $($process.Id))."
 Start-Sleep -Seconds 3
 
 # --- 4. 헬스 체크 ---
-Write-Host "[$AppName] 헬스 체크 중 ($protocol://localhost:$port/health)..."
+Write-Host "[$AppName] 헬스 체크 중 (${protocol}://localhost:${port}/health)..."
 
 # 자체 서명 인증서 검증 우회 (HTTPS 모드)
 if ($useHttps) {
@@ -92,7 +92,7 @@ $success    = $false
 
 for ($i = 1; $i -le $maxRetries; $i++) {
     try {
-        $response = Invoke-WebRequest -Uri "$protocol://localhost:$port/health" `
+        $response = Invoke-WebRequest -Uri "${protocol}://localhost:${port}/health" `
                                       -UseBasicParsing -TimeoutSec 5
         if ($response.StatusCode -eq 200) {
             Write-Host "[$AppName] 배포 성공. 헬스 체크 통과 ($($response.StatusCode))."
