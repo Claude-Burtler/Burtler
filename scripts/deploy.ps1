@@ -91,28 +91,24 @@ Write-Host "[$AppName] 서버 시작 요청 완료."
 Start-Sleep -Seconds 5
 
 # --- 5. 헬스 체크 ---
+# Invoke-WebRequest 대신 curl.exe 사용:
+# ServicePointManager 콜백은 프로세스 전체에 적용되어
+# Actions 러너의 GitHub 통신까지 차단하는 부작용이 있음
 Write-Host "[$AppName] 헬스 체크 중 (${protocol}://localhost:${port}/health)..."
-
-if ($useHttps) {
-    [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-}
 
 $maxRetries = 5
 $success    = $false
 
 for ($i = 1; $i -le $maxRetries; $i++) {
-    try {
-        $response = Invoke-WebRequest -Uri "${protocol}://localhost:${port}/health" `
-                                      -UseBasicParsing -TimeoutSec 5
-        if ($response.StatusCode -eq 200) {
-            Write-Host "[$AppName] 배포 성공. 헬스 체크 통과 ($($response.StatusCode))."
-            $success = $true
-            break
-        }
-    } catch {
-        Write-Host "[$AppName] 헬스 체크 시도 $i/$maxRetries 실패. 재시도 중..."
-        Start-Sleep -Seconds 2
+    # -k: 자체 서명 인증서 허용, -s: 진행바 숨김, --max-time 5: 타임아웃
+    $statusCode = curl.exe -k -s -o NUL -w "%{http_code}" --max-time 5 "${protocol}://localhost:${port}/health" 2>$null
+    if ($statusCode -eq "200") {
+        Write-Host "[$AppName] 배포 성공. 헬스 체크 통과 ($statusCode)."
+        $success = $true
+        break
     }
+    Write-Host "[$AppName] 헬스 체크 시도 $i/$maxRetries 실패 (응답: $statusCode). 재시도 중..."
+    Start-Sleep -Seconds 2
 }
 
 if (-not $success) {
