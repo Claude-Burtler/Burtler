@@ -1,4 +1,5 @@
 const chatLog = document.querySelector("#chatLog");
+const pinnedArea = document.querySelector("#pinnedArea");
 const chatForm = document.querySelector("#chatForm");
 const messageInput = document.querySelector("#messageInput");
 const nameInput = document.querySelector("#nameInput");
@@ -23,6 +24,7 @@ const clientHost = document.querySelector("#clientHost");
 let socket;
 let reconnectTimer;
 let history = [];
+let pinnedMessageIds = [];
 let profile;
 let screenState = { active: false };
 let localStream;
@@ -196,6 +198,87 @@ function buildMapCard(url) {
   return card;
 }
 
+async function togglePin(messageId) {
+  const isPinned = pinnedMessageIds.includes(messageId);
+  const method = isPinned ? "DELETE" : "POST";
+
+  try {
+    const response = await fetch(`/api/pin/${messageId}`, { method });
+
+    if (!response.ok) {
+      throw new Error("고정 처리에 실패했습니다.");
+    }
+  } catch (error) {
+    setStatus(error.message, false);
+  }
+}
+
+function buildPinButton(messageId) {
+  const isPinned = pinnedMessageIds.includes(messageId);
+  const button = document.createElement("button");
+  button.className = "pin-button";
+  button.type = "button";
+  button.textContent = isPinned ? "📌" : "📍";
+  button.title = isPinned ? "고정 해제" : "메시지 고정";
+  button.dataset.pinned = isPinned ? "true" : "false";
+  button.addEventListener("click", () => togglePin(messageId));
+  return button;
+}
+
+function renderPinnedMessages() {
+  const pinned = history.filter((msg) => pinnedMessageIds.includes(msg.id));
+
+  if (!pinned.length) {
+    pinnedArea.hidden = true;
+    pinnedArea.replaceChildren();
+    return;
+  }
+
+  pinnedArea.hidden = false;
+  pinnedArea.replaceChildren();
+
+  const header = document.createElement("div");
+  header.className = "pinned-header";
+  header.textContent = `고정된 메시지 (${pinned.length})`;
+  pinnedArea.append(header);
+
+  for (const message of pinned) {
+    const isMine = profile && message.client_id === profile.client_id;
+
+    const row = document.createElement("div");
+    row.className = `pinned-message-row ${isMine ? "mine" : "theirs"}`;
+
+    const bubble = document.createElement("div");
+    bubble.className = "pinned-message-bubble";
+
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+    meta.textContent = `${message.author} (${formatHost(message.host)}) · ${formatTime(message.created_at)}`;
+
+    const text = document.createElement("div");
+    text.className = "message-text";
+    text.textContent = message.text;
+
+    bubble.append(meta, text);
+
+    const url = findFirstUrl(message.text);
+    if (url && isMapUrl(url)) {
+      bubble.append(buildMapCard(url));
+    }
+
+    const unpinButton = document.createElement("button");
+    unpinButton.className = "unpin-button";
+    unpinButton.type = "button";
+    unpinButton.textContent = "×";
+    unpinButton.title = "고정 해제";
+    unpinButton.addEventListener("click", () => togglePin(message.id));
+
+    bubble.append(unpinButton);
+    row.append(bubble);
+    pinnedArea.append(row);
+  }
+}
+
 function renderMessages(messages) {
   chatLog.replaceChildren();
 
@@ -231,11 +314,15 @@ function renderMessages(messages) {
       bubble.append(buildMapCard(url));
     }
 
+    const pinButton = buildPinButton(message.id);
+    bubble.append(pinButton);
+
     row.append(bubble);
     chatLog.append(row);
   }
 
   chatLog.scrollTop = chatLog.scrollHeight;
+  renderPinnedMessages();
 }
 
 function upsertMessage(message) {
@@ -625,6 +712,13 @@ function connectSocket() {
       if (data.type === "message") {
         upsertMessage(data.message);
         notifyMessage(data.message);
+        return;
+      }
+
+      if (data.type === "pinned") {
+        pinnedMessageIds = data.message_ids || [];
+        renderPinnedMessages();
+        renderMessages(history);
         return;
       }
 
