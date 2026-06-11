@@ -19,7 +19,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 B 노트북 접속:
 
 ```text
-http://192.168.50.143:8000
+http://192.168.50.104:8000
 ```
 
 ## 내부망 HTTPS 실행
@@ -41,7 +41,7 @@ uvicorn main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/localhost.pem -
 3. B 노트북에서 접속:
 
 ```text
-https://192.168.50.143:8443
+https://192.168.50.104:8443
 ```
 
 4. Chrome 경고가 뜨면 내부 테스트용으로 `고급` -> `계속 이동`을 선택합니다.

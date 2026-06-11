@@ -76,13 +76,13 @@ function updateNotifyButton() {
   notifyButton.dataset.enabled = Notification.permission === "granted" ? "true" : "false";
 
   if (Notification.permission === "granted") {
-    notifyButton.textContent = "●";
+    notifyButton.textContent = "🔔";
     notifyButton.title = "알림 켜짐";
   } else if (Notification.permission === "denied") {
-    notifyButton.textContent = "!";
+    notifyButton.textContent = "🔕";
     notifyButton.title = "브라우저 설정에서 알림을 허용해야 합니다.";
   } else {
-    notifyButton.textContent = "!";
+    notifyButton.textContent = "🔔";
     notifyButton.title = "알림 켜기";
   }
 }

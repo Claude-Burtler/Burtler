@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>A/B Laptop Chat</title>
+    <title> Burtler </title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -35,9 +35,9 @@
 
         <section class="chat-panel" aria-label="A/B laptop chat">
           <header class="chat-header">
-            <div>
+            <div class="chat-header-title">
               <p class="eyebrow" id="connectionStatus">연결 중</p>
-              <h2>A/B 노트북 채팅</h2>
+              <h2>채팅방</h2>
             </div>
 
             <div class="header-actions">
@@ -46,7 +46,7 @@
                 <input id="nameInput" type="text" maxlength="40" autocomplete="off" />
               </label>
               <button id="notifyButton" class="icon-button" type="button" title="알림 켜기" aria-label="알림 켜기">
-                !
+                🔔
               </button>
               <button id="clearButton" class="icon-button" type="button" title="대화 초기화" aria-label="대화 초기화">
                 ↻
@@ -64,7 +64,7 @@
                 type="text"
                 autocomplete="off"
                 maxlength="1000"
-                placeholder="맛집 의견이나 지도 링크를 입력하세요"
+                placeholder="메시지를 입력하세요"
                 aria-label="메시지"
                 required
               />
