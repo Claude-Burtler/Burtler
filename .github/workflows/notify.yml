@@ -1,0 +1,166 @@
+name: KakaoWork Notify
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+      - ready_for_review
+
+  issues:
+    types:
+      - opened
+      - closed
+      - reopened
+
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send KakaoWork notification
+        env:
+          KAKAOWORK_WEBHOOK_URL: ${{ secrets.KAKAOWORK_WEBHOOK_URL }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          webhook_url = os.environ["KAKAOWORK_WEBHOOK_URL"]
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          event_path = os.environ["GITHUB_EVENT_PATH"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          actor = os.environ["GITHUB_ACTOR"]
+          server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+          run_id = os.environ["GITHUB_RUN_ID"]
+
+          with open(event_path, "r", encoding="utf-8") as f:
+              payload = json.load(f)
+
+          def truncate_text(text: str, limit: int = 500) -> str:
+              if len(text) <= limit:
+                  return text
+              return text[:497] + "..."
+
+          def build_message() -> str:
+              if event_name == "push":
+                  branch = payload.get("ref", "").replace("refs/heads/", "")
+                  commits = payload.get("commits", [])
+                  head_commit = payload.get("head_commit") or {}
+                  commit_message = head_commit.get("message", "")
+                  compare_url = payload.get("compare", "")
+
+                  return (
+                      f"[GitHub] {repo}\n"
+                      f"Push 발생\n"
+                      f"브랜치: {branch}\n"
+                      f"작성자: {actor}\n"
+                      f"커밋 수: {len(commits)}개\n"
+                      f"메시지: {commit_message}\n"
+                      f"{compare_url}"
+                  )
+
+              if event_name == "pull_request":
+                  action = payload.get("action", "")
+                  pr = payload.get("pull_request", {})
+                  number = pr.get("number")
+                  title = pr.get("title", "")
+                  url = pr.get("html_url", "")
+                  merged = pr.get("merged", False)
+
+                  if action == "closed" and merged:
+                      action_text = "merged"
+                  else:
+                      action_text = action
+
+                  return (
+                      f"[GitHub] {repo}\n"
+                      f"PR {action_text}\n"
+                      f"번호: #{number}\n"
+                      f"제목: {title}\n"
+                      f"작성자: {actor}\n"
+                      f"{url}"
+                  )
+
+              if event_name == "issues":
+                  action = payload.get("action", "")
+                  issue = payload.get("issue", {})
+                  number = issue.get("number")
+                  title = issue.get("title", "")
+                  url = issue.get("html_url", "")
+
+                  return (
+                      f"[GitHub] {repo}\n"
+                      f"Issue {action}\n"
+                      f"번호: #{number}\n"
+                      f"제목: {title}\n"
+                      f"작성자: {actor}\n"
+                      f"{url}"
+                  )
+
+              if event_name == "issue_comment":
+                  issue = payload.get("issue", {})
+                  comment = payload.get("comment", {})
+                  number = issue.get("number")
+                  title = issue.get("title", "")
+                  url = comment.get("html_url", issue.get("html_url", ""))
+
+                  target_type = "PR" if "pull_request" in issue else "Issue"
+
+                  return (
+                      f"[GitHub] {repo}\n"
+                      f"{target_type} 댓글 생성\n"
+                      f"번호: #{number}\n"
+                      f"제목: {title}\n"
+                      f"작성자: {actor}\n"
+                      f"{url}"
+                  )
+
+              run_url = f"{server_url}/{repo}/actions/runs/{run_id}"
+              return (
+                  f"[GitHub] {repo}\n"
+                  f"이벤트 발생: {event_name}\n"
+                  f"작성자: {actor}\n"
+                  f"{run_url}"
+              )
+
+          text = truncate_text(build_message())
+
+          body = {
+              "text": text
+          }
+
+          data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+
+          request = urllib.request.Request(
+              webhook_url,
+              data=data,
+              headers={
+                  "Content-Type": "application/json"
+              },
+              method="POST"
+          )
+
+          with urllib.request.urlopen(request, timeout=10) as response:
+              print("KakaoWork response status:", response.status)
+          PY
