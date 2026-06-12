@@ -34,6 +34,7 @@ class ChatMessage(BaseModel):
     host: str
     text: str
     created_at: str
+    pinned: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -103,7 +104,9 @@ app = FastAPI(title="A/B Laptop Chat + Screen Share", version="3.0.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 chat_history: list[ChatMessage] = []
+pinned_messages: list[str] = []
 participant_names: dict[str, str] = {}
+participant_counter: int = 0
 screen_state = ScreenState()
 manager = ConnectionManager()
 
@@ -149,17 +152,27 @@ def normalize_host(host: str | None) -> str:
     return normalized
 
 
-def default_author(host: str) -> str:
-    if host == "server-local":
-        return "A 노트북"
+def default_author(client_id: str) -> str:
+    global participant_counter
 
-    return "B 노트북"
+    if client_id in participant_names:
+        return participant_names[client_id]
+
+    participant_counter += 1
+    label_index = participant_counter - 1
+
+    labels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+
+    if label_index < len(labels):
+        return f"{labels[label_index]} 노트북"
+
+    return f"사용자 {participant_counter}"
 
 
 def profile_from_host(host: str | None, connection_id: str | None = None) -> ClientProfile:
     normalized_host = normalize_host(host)
     client_id = f"host:{normalized_host}"
-    author = participant_names.setdefault(client_id, default_author(normalized_host))
+    author = participant_names.setdefault(client_id, default_author(client_id))
 
     return ClientProfile(
         client_id=client_id,
@@ -238,8 +251,41 @@ def get_history() -> list[ChatMessage]:
 @app.delete("/api/history")
 async def clear_history() -> dict[str, str]:
     chat_history.clear()
+    pinned_messages.clear()
     await manager.broadcast({"type": "history", "messages": []})
+    await manager.broadcast({"type": "pinned", "message_ids": []})
     return {"status": "cleared"}
+
+
+@app.post("/api/pin/{message_id}")
+async def pin_message(message_id: str) -> dict[str, Any]:
+    message = next((msg for msg in chat_history if msg.id == message_id), None)
+
+    if not message:
+        return {"error": "메시지를 찾을 수 없습니다."}
+
+    if message_id in pinned_messages:
+        return {"status": "already_pinned"}
+
+    pinned_messages.append(message_id)
+    message.pinned = True
+    await manager.broadcast({"type": "pinned", "message_ids": pinned_messages})
+    return {"status": "pinned", "message_ids": pinned_messages}
+
+
+@app.delete("/api/pin/{message_id}")
+async def unpin_message(message_id: str) -> dict[str, Any]:
+    if message_id not in pinned_messages:
+        return {"status": "not_pinned"}
+
+    pinned_messages.remove(message_id)
+    message = next((msg for msg in chat_history if msg.id == message_id), None)
+
+    if message:
+        message.pinned = False
+
+    await manager.broadcast({"type": "pinned", "message_ids": pinned_messages})
+    return {"status": "unpinned", "message_ids": pinned_messages}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -266,6 +312,7 @@ async def websocket_chat(websocket: WebSocket) -> None:
     await manager.connect(websocket, record)
     await websocket.send_json({"type": "profile", "profile": profile.model_dump()})
     await websocket.send_json({"type": "history", "messages": serialize_history()})
+    await websocket.send_json({"type": "pinned", "message_ids": pinned_messages})
     await websocket.send_json({"type": "screen-state", "state": screen_state.model_dump()})
 
     try:
