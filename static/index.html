@@ -51,9 +51,13 @@
               <button id="clearButton" class="icon-button" type="button" title="대화 초기화" aria-label="대화 초기화">
                 ↻
               </button>
+              <button id="pinnedCollapsedIcon" class="pinned-collapsed-icon" type="button" title="고정된 메시지" aria-label="고정된 메시지">
+                📌
+              </button>
             </div>
           </header>
 
+          <div id="pinnedArea" class="pinned-area" hidden></div>
           <div id="chatLog" class="chat-log" aria-live="polite"></div>
 
           <form id="chatForm" class="chat-form">

@@ -1,4 +1,6 @@
 const chatLog = document.querySelector("#chatLog");
+const pinnedArea = document.querySelector("#pinnedArea");
+const pinnedCollapsedIcon = document.querySelector("#pinnedCollapsedIcon");
 const chatForm = document.querySelector("#chatForm");
 const messageInput = document.querySelector("#messageInput");
 const nameInput = document.querySelector("#nameInput");
@@ -23,6 +25,8 @@ const clientHost = document.querySelector("#clientHost");
 let socket;
 let reconnectTimer;
 let history = [];
+let pinnedMessageIds = [];
+let pinnedCollapsed = localStorage.getItem("pinnedCollapsed") === "true";
 let profile;
 let screenState = { active: false };
 let localStream;
@@ -33,6 +37,7 @@ let pendingViewerIce = [];
 let pendingPresenterIce = new Map();
 let fitMode = "contain";
 let unreadCount = 0;
+let notificationsEnabled = false;
 let frameRelayTimer;
 let frameCanvas;
 
@@ -62,38 +67,45 @@ function setFitMode(nextMode) {
 }
 
 function notificationAvailable() {
-  return "Notification" in window;
+  return "Notification" in window && window.isSecureContext;
 }
 
 function updateNotifyButton() {
   if (!notificationAvailable()) {
-    notifyButton.textContent = "×";
-    notifyButton.title = "이 브라우저는 알림을 지원하지 않습니다.";
+    notifyButton.textContent = "🔕";
+    notifyButton.title = !window.isSecureContext
+      ? "알림은 HTTPS 연결에서만 사용 가능합니다."
+      : "이 브라우저는 알림을 지원하지 않습니다.";
     notifyButton.disabled = true;
     return;
   }
 
-  notifyButton.dataset.enabled = Notification.permission === "granted" ? "true" : "false";
+  notifyButton.dataset.enabled = notificationsEnabled ? "true" : "false";
 
-  if (Notification.permission === "granted") {
-    notifyButton.textContent = "🔔";
-    notifyButton.title = "알림 켜짐";
-  } else if (Notification.permission === "denied") {
+  if (Notification.permission === "denied") {
     notifyButton.textContent = "🔕";
     notifyButton.title = "브라우저 설정에서 알림을 허용해야 합니다.";
-  } else {
+  } else if (notificationsEnabled) {
     notifyButton.textContent = "🔔";
-    notifyButton.title = "알림 켜기";
+    notifyButton.title = "알림 켜짐 (클릭하여 끄기)";
+  } else {
+    notifyButton.textContent = "🔕";
+    notifyButton.title = "알림 꺼짐 (클릭하여 켜기)";
   }
 }
 
-async function requestNotifications() {
+async function toggleNotifications() {
   if (!notificationAvailable()) {
     return;
   }
 
   if (Notification.permission === "default") {
-    await Notification.requestPermission();
+    const result = await Notification.requestPermission();
+    if (result === "granted") {
+      notificationsEnabled = true;
+    }
+  } else if (Notification.permission === "granted") {
+    notificationsEnabled = !notificationsEnabled;
   }
 
   updateNotifyButton();
@@ -116,7 +128,7 @@ function notifyMessage(message) {
 
   markUnread();
 
-  if (notificationAvailable() && Notification.permission === "granted") {
+  if (notificationAvailable() && Notification.permission === "granted" && notificationsEnabled) {
     const notification = new Notification(`${message.author}님의 새 메시지`, {
       body: message.text,
       tag: "ab-chat-message",
@@ -196,6 +208,153 @@ function buildMapCard(url) {
   return card;
 }
 
+async function togglePin(messageId) {
+  const isPinned = pinnedMessageIds.includes(messageId);
+  const method = isPinned ? "DELETE" : "POST";
+
+  try {
+    const response = await fetch(`/api/pin/${messageId}`, { method });
+
+    if (!response.ok) {
+      throw new Error("고정 처리에 실패했습니다.");
+    }
+  } catch (error) {
+    setStatus(error.message, false);
+  }
+}
+
+function buildPinButton(messageId) {
+  const isPinned = pinnedMessageIds.includes(messageId);
+  const button = document.createElement("button");
+  button.className = "pin-button";
+  button.type = "button";
+  button.textContent = isPinned ? "📌" : "📍";
+  button.title = isPinned ? "고정 해제" : "메시지 고정";
+  button.dataset.pinned = isPinned ? "true" : "false";
+  button.addEventListener("click", () => togglePin(messageId));
+  return button;
+}
+
+function togglePinnedCollapse() {
+  pinnedCollapsed = !pinnedCollapsed;
+  localStorage.setItem("pinnedCollapsed", pinnedCollapsed);
+  updatePinnedVisibility();
+}
+
+function updatePinnedVisibility() {
+  const hasPinned = pinnedMessageIds.length > 0;
+
+  if (!hasPinned) {
+    pinnedArea.hidden = true;
+    pinnedCollapsedIcon.classList.remove("visible");
+    return;
+  }
+
+  if (pinnedCollapsed) {
+    pinnedArea.hidden = true;
+    pinnedCollapsedIcon.classList.add("visible");
+    pinnedCollapsedIcon.title = `고정된 메시지 ${pinnedMessageIds.length}개 펼치기`;
+  } else {
+    pinnedArea.hidden = false;
+    pinnedCollapsedIcon.classList.remove("visible");
+  }
+}
+
+function scrollToMessage(messageId) {
+  const messageElements = chatLog.querySelectorAll(".message-row");
+  let found = false;
+  for (const element of messageElements) {
+    if (element.dataset.messageId === messageId) {
+      found = true;
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      element.style.animation = "highlight 1s ease";
+      setTimeout(() => {
+        element.style.animation = "";
+      }, 1000);
+      break;
+    }
+  }
+  if (!found) {
+    console.log("메시지를 찾을 수 없습니다:", messageId);
+    console.log("사용 가능한 메시지 ID:", Array.from(messageElements).map(el => el.dataset.messageId));
+  }
+}
+
+function renderPinnedMessages() {
+  const pinned = history.filter((msg) => pinnedMessageIds.includes(msg.id));
+
+  pinnedArea.replaceChildren();
+
+  if (!pinned.length) {
+    updatePinnedVisibility();
+    return;
+  }
+
+  const header = document.createElement("div");
+  header.className = "pinned-header";
+  header.addEventListener("click", togglePinnedCollapse);
+
+  const headerText = document.createElement("span");
+  headerText.textContent = `고정된 메시지 (${pinned.length})`;
+
+  const toggle = document.createElement("span");
+  toggle.className = "pinned-toggle";
+  toggle.textContent = "▼";
+
+  header.append(headerText, toggle);
+  pinnedArea.append(header);
+
+  const messagesContainer = document.createElement("div");
+  messagesContainer.className = "pinned-messages";
+
+  for (const message of pinned) {
+    const isMine = profile && message.client_id === profile.client_id;
+
+    const row = document.createElement("div");
+    row.className = `pinned-message-row ${isMine ? "mine" : "theirs"}`;
+
+    const bubble = document.createElement("div");
+    bubble.className = "pinned-message-bubble";
+    bubble.style.cursor = "pointer";
+    bubble.addEventListener("click", (e) => {
+      if (e.target.className === "unpin-button") return;
+      scrollToMessage(message.id);
+    });
+
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+    meta.textContent = `${message.author} (${formatHost(message.host)}) · ${formatTime(message.created_at)}`;
+
+    const text = document.createElement("div");
+    text.className = "message-text";
+    text.textContent = message.text;
+
+    bubble.append(meta, text);
+
+    const url = findFirstUrl(message.text);
+    if (url && isMapUrl(url)) {
+      bubble.append(buildMapCard(url));
+    }
+
+    const unpinButton = document.createElement("button");
+    unpinButton.className = "unpin-button";
+    unpinButton.type = "button";
+    unpinButton.textContent = "×";
+    unpinButton.title = "고정 해제";
+    unpinButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePin(message.id);
+    });
+
+    bubble.append(unpinButton);
+    row.append(bubble);
+    messagesContainer.append(row);
+  }
+
+  pinnedArea.append(messagesContainer);
+  updatePinnedVisibility();
+}
+
 function renderMessages(messages) {
   chatLog.replaceChildren();
 
@@ -212,6 +371,7 @@ function renderMessages(messages) {
 
     const row = document.createElement("div");
     row.className = `message-row ${isMine ? "mine" : "theirs"}`;
+    row.dataset.messageId = message.id;
 
     const bubble = document.createElement("div");
     bubble.className = "message-bubble";
@@ -231,11 +391,15 @@ function renderMessages(messages) {
       bubble.append(buildMapCard(url));
     }
 
+    const pinButton = buildPinButton(message.id);
+    bubble.append(pinButton);
+
     row.append(bubble);
     chatLog.append(row);
   }
 
   chatLog.scrollTop = chatLog.scrollHeight;
+  renderPinnedMessages();
 }
 
 function upsertMessage(message) {
@@ -628,6 +792,13 @@ function connectSocket() {
         return;
       }
 
+      if (data.type === "pinned") {
+        pinnedMessageIds = data.message_ids || [];
+        renderPinnedMessages();
+        renderMessages(history);
+        return;
+      }
+
       if (data.type === "screen-state") {
         handleScreenState(data.state);
         return;
@@ -784,7 +955,8 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-notifyButton.addEventListener("click", requestNotifications);
+notifyButton.addEventListener("click", toggleNotifications);
+pinnedCollapsedIcon.addEventListener("click", togglePinnedCollapse);
 startShareButton.addEventListener("click", startScreenShare);
 watchShareButton.addEventListener("click", requestScreenWatch);
 stopShareButton.addEventListener("click", () => stopScreenShare(true));
