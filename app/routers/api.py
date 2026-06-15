@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 
 from app.models import ChatMessage, ChatRequest, ChatResponse, ClientProfile, NameUpdate
 from app.store import state
+from app.utils import normalize_host
 
 router = APIRouter()
 
@@ -29,11 +30,15 @@ def get_history() -> list[ChatMessage]:
 
 
 @router.delete("/history")
-async def clear_history() -> dict[str, str]:
-    state.chat_history.clear()
-    state.pinned_messages.clear()
-    await state.manager.broadcast({"type": "history", "messages": []})
-    await state.manager.broadcast({"type": "pinned", "message_ids": []})
+async def clear_history(request: Request) -> dict[str, str]:
+    host = request.client.host if request.client else None
+    client_id = f"host:{normalize_host(host)}"
+
+    for conn_id, record in list(state.manager.records.items()):
+        if record.client_id == client_id:
+            await state.manager.send(conn_id, {"type": "history", "messages": []})
+            await state.manager.send(conn_id, {"type": "pinned", "message_ids": []})
+
     return {"status": "cleared"}
 
 
