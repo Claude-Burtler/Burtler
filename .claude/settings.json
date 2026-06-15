@@ -1,0 +1,47 @@
+{
+  "model": "sonnet",
+  "permissions": {
+    "allow": [
+      "Bash(python -m compileall *)",
+      "Bash(python -m py_compile *)",
+      "Bash(uvicorn *)",
+      "Bash(python generate_https_cert.py)",
+      "Bash(pip install *)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Read",
+      "Edit",
+      "Write",
+      "Agent"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git commit *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import sys,json,subprocess as s; d=json.loads(sys.stdin.buffer.read().decode('utf-8')); f=(d.get('tool_input',{}).get('file_path') or ''); sys.exit((2 if s.call([sys.executable,'-m','py_compile',f]) else 0) if f.endswith('.py') else 0)\"",
+            "statusMessage": "Checking Python syntax..."
+          }
+        ]
+      }
+    ]
+  },
+  "outputStyle": "Explanatory",
+  "cleanupPeriodDays": 14
+}
