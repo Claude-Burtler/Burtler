@@ -37,6 +37,7 @@ let pendingViewerIce = [];
 let pendingPresenterIce = new Map();
 let fitMode = "contain";
 let unreadCount = 0;
+let notificationsEnabled = false;
 let frameRelayTimer;
 let frameCanvas;
 
@@ -66,38 +67,45 @@ function setFitMode(nextMode) {
 }
 
 function notificationAvailable() {
-  return "Notification" in window;
+  return "Notification" in window && window.isSecureContext;
 }
 
 function updateNotifyButton() {
   if (!notificationAvailable()) {
-    notifyButton.textContent = "×";
-    notifyButton.title = "이 브라우저는 알림을 지원하지 않습니다.";
+    notifyButton.textContent = "🔕";
+    notifyButton.title = !window.isSecureContext
+      ? "알림은 HTTPS 연결에서만 사용 가능합니다."
+      : "이 브라우저는 알림을 지원하지 않습니다.";
     notifyButton.disabled = true;
     return;
   }
 
-  notifyButton.dataset.enabled = Notification.permission === "granted" ? "true" : "false";
+  notifyButton.dataset.enabled = notificationsEnabled ? "true" : "false";
 
-  if (Notification.permission === "granted") {
-    notifyButton.textContent = "🔔";
-    notifyButton.title = "알림 켜짐";
-  } else if (Notification.permission === "denied") {
+  if (Notification.permission === "denied") {
     notifyButton.textContent = "🔕";
     notifyButton.title = "브라우저 설정에서 알림을 허용해야 합니다.";
-  } else {
+  } else if (notificationsEnabled) {
     notifyButton.textContent = "🔔";
-    notifyButton.title = "알림 켜기";
+    notifyButton.title = "알림 켜짐 (클릭하여 끄기)";
+  } else {
+    notifyButton.textContent = "🔕";
+    notifyButton.title = "알림 꺼짐 (클릭하여 켜기)";
   }
 }
 
-async function requestNotifications() {
+async function toggleNotifications() {
   if (!notificationAvailable()) {
     return;
   }
 
   if (Notification.permission === "default") {
-    await Notification.requestPermission();
+    const result = await Notification.requestPermission();
+    if (result === "granted") {
+      notificationsEnabled = true;
+    }
+  } else if (Notification.permission === "granted") {
+    notificationsEnabled = !notificationsEnabled;
   }
 
   updateNotifyButton();
@@ -120,7 +128,7 @@ function notifyMessage(message) {
 
   markUnread();
 
-  if (notificationAvailable() && Notification.permission === "granted") {
+  if (notificationAvailable() && Notification.permission === "granted" && notificationsEnabled) {
     const notification = new Notification(`${message.author}님의 새 메시지`, {
       body: message.text,
       tag: "ab-chat-message",
@@ -947,7 +955,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-notifyButton.addEventListener("click", requestNotifications);
+notifyButton.addEventListener("click", toggleNotifications);
 pinnedCollapsedIcon.addEventListener("click", togglePinnedCollapse);
 startShareButton.addEventListener("click", startScreenShare);
 watchShareButton.addEventListener("click", requestScreenWatch);

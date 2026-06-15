@@ -1,6 +1,10 @@
 # Burtler deploy pipeline: feature → dev
 # Usage: powershell -ExecutionPolicy Bypass -File .\scripts\deploy-pipeline.ps1
 
+param(
+    [string]$Author = (git config user.name)
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -22,14 +26,14 @@ if ($dirty) {
     $deleted  = @(git diff --cached --name-only --diff-filter=D)
 
     if ($added.Count -gt 0 -and $modified.Count -eq 0 -and $deleted.Count -eq 0) {
-        $commitMsg = "feat: add $($added -join ', ')"
+        $commitMsg = "feat: [$Author] add $($added -join ', ')"
     } elseif ($deleted.Count -gt 0 -and $added.Count -eq 0 -and $modified.Count -eq 0) {
-        $commitMsg = "chore: remove $($deleted -join ', ')"
+        $commitMsg = "chore: [$Author] remove $($deleted -join ', ')"
     } elseif ($modified.Count -gt 0 -and $added.Count -eq 0 -and $deleted.Count -eq 0) {
-        $commitMsg = "refactor: update $($modified -join ', ')"
+        $commitMsg = "refactor: [$Author] update $($modified -join ', ')"
     } else {
         $total = $added.Count + $modified.Count + $deleted.Count
-        $commitMsg = "chore: $total files changed (added $($added.Count), modified $($modified.Count), deleted $($deleted.Count))"
+        $commitMsg = "chore: [$Author] $total files changed (added $($added.Count), modified $($modified.Count), deleted $($deleted.Count))"
     }
 
     Write-Host "[deploy] Commit message: $commitMsg"
