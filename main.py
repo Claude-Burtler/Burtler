@@ -110,6 +110,8 @@ participant_counter: int = 0
 screen_state = ScreenState()
 manager = ConnectionManager()
 
+_AUTHOR_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+
 
 def local_hosts() -> set[str]:
     hosts = {"127.0.0.1", "::1", "localhost"}
@@ -152,27 +154,21 @@ def normalize_host(host: str | None) -> str:
     return normalized
 
 
-def default_author(client_id: str) -> str:
+def _next_author_label() -> str:
     global participant_counter
-
-    if client_id in participant_names:
-        return participant_names[client_id]
-
     participant_counter += 1
-    label_index = participant_counter - 1
-
-    labels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
-
-    if label_index < len(labels):
-        return f"{labels[label_index]} 노트북"
-
+    idx = participant_counter - 1
+    if idx < len(_AUTHOR_LABELS):
+        return f"{_AUTHOR_LABELS[idx]} 노트북"
     return f"사용자 {participant_counter}"
 
 
 def profile_from_host(host: str | None, connection_id: str | None = None) -> ClientProfile:
     normalized_host = normalize_host(host)
     client_id = f"host:{normalized_host}"
-    author = participant_names.setdefault(client_id, default_author(client_id))
+    if client_id not in participant_names:
+        participant_names[client_id] = _next_author_label()
+    author = participant_names[client_id]
 
     return ClientProfile(
         client_id=client_id,
