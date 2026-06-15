@@ -1,65 +1,88 @@
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+LLM의 흔한 코딩 실수를 줄이기 위한 행동 지침. 프로젝트별 지침과 병합하여 사용.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+**트레이드오프:** 이 지침은 속도보다 신중함을 우선합니다. 사소한 작업은 판단에 따라 유연하게 적용하세요.
 
-## 1. Think Before Coding
+## 1. 코딩 전에 먼저 생각하라
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**가정하지 마라. 혼란을 숨기지 마라. 트레이드오프를 드러내라.**
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+구현 전에:
+- 자신의 가정을 명시적으로 밝혀라. 불확실하면 물어봐라.
+- 해석이 여러 가지라면, 그것들을 제시해라 — 조용히 하나만 고르지 마라.
+- 더 단순한 접근법이 있다면 말해라. 필요하면 반론을 제기해라.
+- 불분명한 게 있으면 멈춰라. 무엇이 혼란스러운지 명확히 하고 물어봐라.
 
-## 2. Simplicity First
+## 2. 단순함을 먼저
 
-**Minimum code that solves the problem. Nothing speculative.**
+**문제를 해결하는 최소한의 코드. 추측성 코드는 없다.**
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- 요청받은 것 이상의 기능은 추가하지 마라.
+- 요청받지 않은 "유연성"이나 "설정 가능성"은 넣지 마라.
+- 불가능한 시나리오에 대한 예외 처리는 하지 마라.
+- 200줄로 짰는데 50줄로 될 수 있다면, 다시 써라.
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+스스로에게 물어봐라: "시니어 엔지니어가 보면 과하게 복잡하다고 할까?" 그렇다면 단순화하라.
 
-## 3. Surgical Changes
+## 3. 외과적 변경
 
-**Touch only what you must. Clean up only your own mess.**
+**꼭 필요한 것만 건드려라. 내가 만든 것만 정리해라.**
 
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+기존 코드를 수정할 때:
+- 인접한 코드, 주석, 포맷을 "개선"하지 마라.
+- 멀쩡한 것을 리팩토링하지 마라.
+- 내 방식과 달라도 기존 스타일을 맞춰라.
+- 관련 없는 죽은 코드를 발견하면, 언급만 해라 — 삭제하지 마라.
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+내 변경으로 고아가 된 것들:
+- 내 변경으로 인해 사용되지 않게 된 import/변수/함수는 제거해라.
+- 기존에 있던 죽은 코드는 요청받지 않는 한 제거하지 마라.
 
-The test: Every changed line should trace directly to the user's request.
+판단 기준: 변경된 모든 줄이 사용자의 요청으로 직접 추적될 수 있어야 한다.
 
-## 4. Goal-Driven Execution
+## 4. 목표 중심 실행
 
-**Define success criteria. Loop until verified.**
+**성공 기준을 정의하라. 검증될 때까지 반복하라.**
 
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
+작업을 검증 가능한 목표로 변환해라:
+- "유효성 검사 추가" → "잘못된 입력에 대한 테스트를 작성하고, 통과시켜라"
+- "버그 수정" → "버그를 재현하는 테스트를 작성하고, 통과시켜라"
+- "X 리팩토링" → "리팩토링 전후로 테스트가 통과하는지 확인해라"
 
-For multi-step tasks, state a brief plan:
+여러 단계 작업이라면 간략한 계획을 먼저 제시해라:
 ```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+1. [단계] → 검증: [확인 방법]
+2. [단계] → 검증: [확인 방법]
+3. [단계] → 검증: [확인 방법]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+강한 성공 기준은 독립적으로 반복할 수 있게 해준다. 약한 기준("작동하게 만들어라")은 끊임없는 확인을 요구한다.
+
+## 5. 코드 구조 원칙
+
+**기능 중심 설계. 확장성과 가독성을 기본값으로.**
+
+### 기능 분리
+- 관련 기능은 같은 모듈/폴더로 묶어라. 기능별 디렉토리 구조를 유지해라.
+  - 예: `routers/`, `models/`, `services/`, `utils/`
+- 하나의 파일·클래스·함수는 하나의 책임만 진다.
+- 여러 곳에서 쓰이는 로직은 공통 모듈로 분리해라.
+
+### Pydantic 모델 (Python)
+- 요청/응답 스키마, 설정값, 함수 간 데이터 전달에는 반드시 Pydantic `BaseModel`을 사용해라.
+- 함수 경계를 넘어 raw `dict`를 전달하지 마라.
+
+### 확장성
+- 공통 동작은 기반 클래스(base class)로 추출해라.
+- 새 기능 추가가 기존 코드 수정 없이 가능한 구조를 목표로 해라 (Open/Closed).
+- 구체 구현보다 추상(abstract class, protocol)에 의존해라.
+
+### 가독성
+- 변수명·함수명만 봐도 의도를 알 수 있어야 한다.
+- "왜(why)"가 자명하지 않은 로직에만 짧은 주석을 달아라. "무엇(what)"은 코드로 표현해라.
+- 한 화면을 넘는 함수는 분리를 고려해라.
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**이 지침이 효과적이라면:** diff에 불필요한 변경이 줄고, 과도한 복잡성으로 인한 재작성이 줄고, 실수 후가 아니라 구현 전에 명확화 질문이 나와야 한다.
